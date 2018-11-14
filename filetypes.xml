@@ -6,7 +6,6 @@
       <mapping ext="gradle" type="JavaFX" />
       <mapping ext="java" type="JavaFX" />
       <mapping ext="geojson" type="PLAIN_TEXT" />
-      <mapping ext="md" type="PLAIN_TEXT" />
       <mapping ext="rtf" type="PLAIN_TEXT" />
       <mapping pattern="python" type="Python" />
       <mapping pattern="rainpy" type="Python" />
