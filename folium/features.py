@@ -23,6 +23,7 @@ from folium.utilities import (
     image_to_url,
     none_max,
     none_min,
+    camelize
 )
 from folium.vector_layers import PolyLine
 
@@ -780,52 +781,87 @@ class GeoJsonPopup(GeoJsonTooltip, MacroElement):
                                 ).add_to(gjson)
     """
     _template = Template(u"""
-        {% macro %}
-        const {% this.parent.get_name() %}baseValues = {{ this.data.pop('datasets')|tojson|safe }}
-        const {% this.parent.get_name() %}baseSpec = {{ this.data|tojson|safe }}
-        
-        function joinChart(spec, values, mapValue, dataKey){
-            let model = baseChart;
-            let datasets = {}
-            Object.keys(values).forEach(i=>{datasets[i]=values[i].filter(k=>k[dataKey]==mapValue)})
-            spec['datasets'] = datasets
-            return spec
-        }
-        
+        {% macro script(this, kwargs) %}
         {{ this._parent.get_name() }}.bindPopup(function(layer){
             let d = L.DomUtil.create('div','foliumpopup')
-            d.id = 'foliumpopup'
-            let mapValue = layer.feature.properties[{{this.map_key}}]
-            let dataKey = {{this.data_key}}
-            let spec = joinChart({{this.parent.get_name()}}baseSpec, {{this.parent.get_name()}}baseValues, mapValue, dataKey)
-            vegaEmbed("#foliumpopup", spec)
+            {% if this.fields %}
+            let handleObject = (feature)=>typeof(feature)=='object' ? JSON.stringify(feature) : feature;
+            let table = L.DomUtil.create('div','foliumtable')
+            d.appendChild(table)
+            let fields = {{ this.fields }}
+            let aliases = {{this.aliases|tojson|safe}}
+            table.innerHTML = '<table{% if this.style %} style={{this.style|tojson|safe}}{% endif %}>' +
+            String(
+                fields.map(
+                columnname=>
+                    `<tr style="text-align: left;">{% if this.labels %}
+                    <th style="padding: 4px; padding-right: 10px;">{% if this.aliases %}
+                        ${aliases[fields.indexOf(columnname)]
+                        {% if this.localize %}.toLocaleString(){% endif %}}
+                    {% else %}
+                    ${ columnname{% if this.localize %}.toLocaleString(){% endif %}}
+                    {% endif %}</th>
+                    {% endif %}
+                    <td style="padding: 4px;">${handleObject(layer.feature.properties[columnname])
+                    {% if this.localize %}.toLocaleString(){% endif %}}</td></tr>`
+                ).join(''))
+            +'</table>'
+            {% endif %}
+            {% if this.vegalite %}
+            const {{ this._parent.get_name() }}baseSpec = {{ this.vegalite.data|tojson|safe }};
+            function joinChart(spec, mapValue, dataKey){
+                let model = spec;
+                Object.keys(spec['datasets']).forEach(i=>{model['datasets'][i]=spec['datasets'][i].filter(k=>k[dataKey]==mapValue)});
+                return model
+            };
+            let chartembed = L.DomUtil.create('div','foliumchart')
+            d.appendChild(chartembed)
+            let mapValue = layer.feature.properties['{{this.map_key}}']
+            let dataKey = '{{this.data_key}}'
+            let spec = joinChart({{this._parent.get_name()}}baseSpec, mapValue, dataKey)
+            vegaEmbed(chartembed, spec)
+            {% endif %}
             return d
-        },
-        {}
-        )
+        },{{ this.popup_options }})
         {% endmacro %}
-    """)
+        """)
 
     def __init__(self, fields=None, aliases=None, labels=True,
-                 localize=False, style=None, sticky=True, vegalite=None,  map_key=None, data_key=None,
-                 **kwargs):
+                 localize=False, style="margin: auto;", vegalite=None, map_key=None, data_key=None,
+                 class_name='foliumpopup', **kwargs):
+        # super(GeoJsonPopup, self).__init__()
         self._name = "GeoJsonPopup"
+        self.style = style
+        self.class_name = class_name
+        kwargs.update({'class_name':self.class_name})
+        kwargs = {camelize(key): value for key, value in kwargs.items()}
+        self.popup_options = json.dumps(kwargs)
         if fields is not None:
-            super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize,
-                                               style=style, sticky=sticky)
+            super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize)
+        self.vegalite = vegalite
+        for chart_arg in [vegalite, map_key, data_key]:
+            if chart_arg is not None:
+                assert all([vegalite, map_key, data_key]), "Pass all 3 arguments (vegalite, map_key, and data_key) to" \
+                                                           " embed a Vega-Lite spec in this GeoJson layer."
         if vegalite is not None:
             assert isinstance(vegalite, VegaLite), "Pass a folium VegaLite object to the vegalite argument."
             self.map_key = map_key
             self.data_key = data_key
 
-    def render(self, **kwargs):
+    def render(self):
         figure = self.get_root()
         figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega@3"))
         figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@2"))
         figure.header.add_child(CssLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.css"))
         figure.header.add_child(JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js"))
-        super(GeoJsonPopup, self).render(**kwargs)
-
+        figure.header.add_child(Element(Template(u"""
+        <style>
+        .{{ this.class_name }}{
+            {{this.style}}
+        }
+        </style>
+        """).render(this=self)), name=self.get_name())
+        super(GeoJsonPopup, self).render()
 
 class Choropleth(FeatureGroup):
     """Apply a GeoJSON overlay to the map.
