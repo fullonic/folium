@@ -11,7 +11,7 @@ import json
 import warnings
 
 from branca.colormap import LinearColormap, StepColormap
-from branca.element import (Element, Figure, JavascriptLink, MacroElement)
+from branca.element import (Element, Figure, JavascriptLink, MacroElement, CssLink)
 from branca.utilities import color_brewer
 
 from folium.folium import Map
@@ -729,6 +729,102 @@ class GeoJsonTooltip(Tooltip):
             assert value in keys, ('The field {} is not available in the data. '
                                    'Choose from: {}.'.format(value, keys))
         super(GeoJsonTooltip, self).render(**kwargs)
+
+
+class GeoJsonPopup(GeoJsonTooltip, MacroElement):
+    """
+    Create a popup feature to bind to each element of a GeoJson layer based on its attributes.
+
+    Follows the form of GeoJsonTooltip with `fields`, `aliases` arguments to embed GeoJson properties as a table in
+    the popup.
+
+    Also has functionality to embed dynamic VegaLite charts for each feature based on a 'join' key for an attribute of
+    the GeoJson feature, and a data layer in a VegaLite specification. Make sure both join keys contain string
+    datatypes for best consistency.
+
+    Parameters
+    ----------
+    fields: list or tuple.
+        Labels of GeoJson/TopoJson 'properties' or GeoPandas GeoDataFrame
+        columns you'd like to display.
+    aliases: list/tuple of strings, same length/order as fields, default None.
+        Optional aliases you'd like to display in the tooltip as field name
+        instead of the keys of `fields`.
+    labels: bool, default True.
+        Set to False to disable displaying the field names or aliases.
+    localize: bool, default False.
+        This will use JavaScript's .toLocaleString() to format 'clean' values
+        as strings for the user's location; i.e. 1,000,000.00 comma separators,
+        float truncation, etc.
+        *Available for most of JavaScript's primitive types (any data you'll
+        serve into the template).
+    style: str, default None.
+        HTML inline style properties like font and colors. Will be applied to
+        a div with the text in it.
+    vegalite: folium.VegaLite, default None.
+        folium wrapper for a VegaLite chart specification.
+    map_key: str, default None.
+        A key in the GeoJson properties to base the join on.
+    data_key: str, default None.
+        A key value in the VegaLite data layer to base the join on.
+
+    Examples
+    ---
+    gjson = folium.GeoJson(gdf).add_to(m)
+
+    folium.features.GeoJsonPopup(fields=['NAME'],
+                                labels=False,
+                                vegalite = chart,
+                                map_key='county_code',
+                                data_key='fips'
+                                ).add_to(gjson)
+    """
+    _template = Template(u"""
+        {% macro %}
+        const {% this.parent.get_name() %}baseValues = {{ this.data.pop('datasets')|tojson|safe }}
+        const {% this.parent.get_name() %}baseSpec = {{ this.data|tojson|safe }}
+        
+        function joinChart(spec, values, mapValue, dataKey){
+            let model = baseChart;
+            let datasets = {}
+            Object.keys(values).forEach(i=>{datasets[i]=values[i].filter(k=>k[dataKey]==mapValue)})
+            spec['datasets'] = datasets
+            return spec
+        }
+        
+        {{ this._parent.get_name() }}.bindPopup(function(layer){
+            let d = L.DomUtil.create('div','foliumpopup')
+            d.id = 'foliumpopup'
+            let mapValue = layer.feature.properties[{{this.map_key}}]
+            let dataKey = {{this.data_key}}
+            let spec = joinChart({{this.parent.get_name()}}baseSpec, {{this.parent.get_name()}}baseValues, mapValue, dataKey)
+            vegaEmbed("#foliumpopup", spec)
+            return d
+        },
+        {}
+        )
+        {% endmacro %}
+    """)
+
+    def __init__(self, fields=None, aliases=None, labels=True,
+                 localize=False, style=None, sticky=True, vegalite=None,  map_key=None, data_key=None,
+                 **kwargs):
+        self._name = "GeoJsonPopup"
+        if fields is not None:
+            super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize,
+                                               style=style, sticky=sticky)
+        if vegalite is not None:
+            assert isinstance(vegalite, VegaLite), "Pass a folium VegaLite object to the vegalite argument."
+            self.map_key = map_key
+            self.data_key = data_key
+
+    def render(self, **kwargs):
+        figure = self.get_root()
+        figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega@3"))
+        figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@2"))
+        figure.header.add_child(CssLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.css"))
+        figure.header.add_child(JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js"))
+        super(GeoJsonPopup, self).render(**kwargs)
 
 
 class Choropleth(FeatureGroup):
