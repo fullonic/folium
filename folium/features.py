@@ -833,7 +833,7 @@ class GeoJsonPopup(GeoJsonTooltip, MacroElement):
         self._name = "GeoJsonPopup"
         self.style = style
         self.class_name = class_name
-        kwargs.update({'class_name':self.class_name})
+        kwargs.update({'class_name': self.class_name})
         kwargs = {camelize(key): value for key, value in kwargs.items()}
         self.popup_options = json.dumps(kwargs)
         if fields is not None:
@@ -853,7 +853,9 @@ class GeoJsonPopup(GeoJsonTooltip, MacroElement):
         figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega@3"))
         figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@2"))
         figure.header.add_child(CssLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.css"))
-        figure.header.add_child(JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js"))
+        figure.header.add_child(
+            JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js")
+        )
         figure.header.add_child(Element(Template(u"""
         <style>
         .{{ this.class_name }}{
