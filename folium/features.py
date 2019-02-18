@@ -717,7 +717,8 @@ class GeoJsonDetail(MacroElement):
     let mapValue = layer.feature.properties['{{ this.map_key }}']
     let dataKey = '{{this.data_key }}'
     Object.keys({{ this._parent.get_name() }}datasets).forEach(function(k){
-    {{ this._parent.get_name() }}spec['datasets'][k]={{ this._parent.get_name() }}datasets[k].filter(o=>o[dataKey]===mapValue)
+    {{ this._parent.get_name() }}spec['datasets'][k]={{ this._parent.get_name() }}datasets[k].filter(
+        o=>o[dataKey]===mapValue)
     })
     let chartembed = L.DomUtil.create('div','foliumchart')
     div.appendChild(chartembed)
@@ -884,12 +885,11 @@ class GeoJsonTooltip(GeoJsonDetail):
     >>> GeoJsonTooltip(fields=('CNTY_NM',), labels=False, sticky=False)
     """
     _template = Template(u"""
-        {% macro script(this, kwargs) %}
-        {{ this._parent.get_name() }}.bindTooltip("""+\
-        GeoJsonDetail.base_template+\
-        u""",{{ this.tooltip_options | tojson | safe }})
-        {% endmacro %}"""
-     )
+    {% macro script(this, kwargs) %}
+    {{ this._parent.get_name() }}.bindTooltip(""" + GeoJsonDetail.base_template +
+                         u""",{{ this.tooltip_options | tojson | safe }})
+                     {% endmacro %}
+                     """)
 
     def __init__(self, fields, aliases=None, labels=True, vegalite=None, map_key=None, data_key=None,
                  localize=False, style=None, class_name='foliumtooltip', sticky=True, **kwargs):
@@ -900,7 +900,7 @@ class GeoJsonTooltip(GeoJsonDetail):
         )
         self._name = 'GeoJsonTooltip'
         kwargs.update({'sticky': sticky, 'class_name': class_name})
-        self.tooltip_options = {camelize(key):kwargs[key] for key in kwargs.keys()}
+        self.tooltip_options = {camelize(key): kwargs[key] for key in kwargs.keys()}
 
 
 class GeoJsonPopup(GeoJsonDetail):
@@ -954,11 +954,10 @@ class GeoJsonPopup(GeoJsonDetail):
 
     _template = Template(u"""
         {% macro script(this, kwargs) %}
-        {{ this._parent.get_name() }}.bindPopup("""+\
-        GeoJsonDetail.base_template+\
-        u""",{{ this.popup_options | tojson | safe }})
-        {% endmacro %}"""
-     )
+        {{ this._parent.get_name() }}.bindPopup(""" +
+                         GeoJsonDetail.base_template +
+                         u""",{{ this.popup_options | tojson | safe }})
+                         {% endmacro %}""")
 
     def __init__(self, fields=None, aliases=None, labels=True, style="margin: auto;", vegalite=None, map_key=None,
                  data_key=None, class_name='foliumpopup', localize=True, **kwargs):
