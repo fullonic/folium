@@ -23,7 +23,7 @@ from folium.utilities import (
     image_to_url,
     none_max,
     none_min,
-    camelize
+    get_obj_in_upper_tree
 )
 from folium.vector_layers import PolyLine
 
@@ -113,7 +113,8 @@ class RegularPolygonMarker(Marker):
                                             'if it is not in a Figure.')
 
         figure.header.add_child(
-            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/leaflet-dvf/0.3.0/leaflet-dvf.markers.min.js'),  # noqa
+            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/leaflet-dvf/0.3.0/leaflet-dvf.markers.min.js'),
+            # noqa
             name='dvf_js')
 
 
@@ -242,11 +243,13 @@ class VegaLite(Element):
 
     def __init__(self, data, width=None, height=None,
                  left='0%', top='0%', position='relative'):
-        super(VegaLite, self).__init__()
+        super(self.__class__, self).__init__()
         self._name = 'VegaLite'
         self.data = data.to_json() if hasattr(data, 'to_json') else data
         if isinstance(self.data, text_type) or isinstance(data, binary_type):
             self.data = json.loads(self.data)
+
+        self.json = json.dumps(self.data)
 
         # Size Parameters.
         self.width = _parse_size(self.data.get('width', '100%') if
@@ -259,21 +262,11 @@ class VegaLite(Element):
 
     def render(self, **kwargs):
         """Renders the HTML representation of the element."""
-        self.json = json.dumps(self.data)
+        vegalite_major_version = self._get_vegalite_major_versions(self.data)
 
         self._parent.html.add_child(Element(Template("""
             <div id="{{this.get_name()}}"></div>
             """).render(this=self, kwargs=kwargs)), name=self.get_name())
-
-        self._parent.script.add_child(Element(Template("""
-            var embedSpec = {
-                mode: "vega-lite",
-                spec: {{this.json}}
-            };
-            vg.embed(
-                {{this.get_name()}}, embedSpec, function(error, result) {}
-            );
-        """).render(this=self)), name=self.get_name())
 
         figure = self.get_root()
         assert isinstance(figure, Figure), ('You cannot render this Element '
@@ -289,21 +282,62 @@ class VegaLite(Element):
             </style>
             """).render(this=self, **kwargs)), name=self.get_name())
 
-        figure.header.add_child(
-            JavascriptLink('https://d3js.org/d3.v3.min.js'),
-            name='d3')
+        if vegalite_major_version == '1':
+            self._embed_vegalite_v1(figure)
+        elif vegalite_major_version == '2':
+            self._embed_vegalite_v2(figure)
+        elif vegalite_major_version == '3':
+            self._embed_vegalite_v3(figure)
+        else:
+            # Version 2 is assumed as the default, if no version is given in the schema.
+            self._embed_vegalite_v2(figure)
 
-        figure.header.add_child(
-            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega/2.6.5/vega.min.js'),  # noqa
-            name='vega')
+    def _get_vegalite_major_versions(self, spec):
+        try:
+            schema = spec['$schema']
+        except KeyError:
+            major_version = None
+        else:
+            major_version = schema.split('/')[-1].split('.')[0].lstrip('v')
 
-        figure.header.add_child(
-            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.3.1/vega-lite.min.js'),  # noqa
-            name='vega-lite')
+        return major_version
 
-        figure.header.add_child(
-            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.min.js'),  # noqa
-            name='vega-embed')
+    def _embed_vegalite_v3(self, figure):
+        self._vega_embed()
+
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega@4'), name='vega')
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-lite@3'), name='vega-lite')
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
+
+    def _embed_vegalite_v2(self, figure):
+        self._vega_embed()
+
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega@3'), name='vega')
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-lite@2'), name='vega-lite')
+        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
+
+    def _vega_embed(self):
+        self._parent.script.add_child(Element(Template("""
+                    vegaEmbed({{this.get_name()}}, {{this.json}})
+                        .then(function(result) {})
+                        .catch(console.error);
+                """).render(this=self)), name=self.get_name())
+
+    def _embed_vegalite_v1(self, figure):
+        self._parent.script.add_child(Element(Template("""
+                    var embedSpec = {
+                        mode: "vega-lite",
+                        spec: {{this.json}}
+                    };
+                    vg.embed(
+                        {{this.get_name()}}, embedSpec, function(error, result) {}
+                    );
+                """).render(this=self)), name=self.get_name())
+
+        figure.header.add_child(JavascriptLink('https://d3js.org/d3.v3.min.js'), name='d3')
+        figure.header.add_child(JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega/2.6.5/vega.js'), name='vega')  # noqa
+        figure.header.add_child(JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega-lite/1.3.1/vega-lite.js'), name='vega-lite')  # noqa
+        figure.header.add_child(JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/vega-embed/2.2.0/vega-embed.js'), name='vega-embed')  # noqa
 
 
 class GeoJson(Layer):
@@ -359,7 +393,7 @@ class GeoJson(Layer):
     """
     _template = Template(u"""
         {% macro script(this, kwargs) %}
-        {% if this.highlight %}
+        {%- if this.highlight %}
             {{this.get_name()}}_onEachFeature = function onEachFeature(feature, layer) {
                 layer.on({
                     mouseout: function(e) {
@@ -367,27 +401,21 @@ class GeoJson(Layer):
                     mouseover: function(e) {
                         e.target.setStyle(e.target.feature.properties.highlight);},
                     click: function(e) {
-                        {{this._parent.get_name()}}.fitBounds(e.target.getBounds());}
-                    });
+                        {{ this.parent_map.get_name() }}.fitBounds(e.target.getBounds());}
+                });
             };
-        {% endif %}
+        {%- endif %}
         var {{this.get_name()}} = L.geoJson(
-            {% if this.embed %}{{this.style_data()}}{% else %}"{{this.data}}"{% endif %}
-            {% if this.smooth_factor is not none or this.highlight %}
-                , {
-                {% if this.smooth_factor is not none  %}
-                    smoothFactor:{{this.smooth_factor}}
-                {% endif %}
-
-                {% if this.highlight %}
-                    {% if this.smooth_factor is not none  %}
-                    ,
-                    {% endif %}
-                    onEachFeature: {{this.get_name()}}_onEachFeature
-                {% endif %}
-                }
-            {% endif %}
-            ).addTo({{this._parent.get_name()}});
+            {{ this.json }},
+            {
+            {%- if this.smooth_factor is not none  %}
+                smoothFactor: {{ this.smooth_factor }},
+            {%- endif %}
+            {%- if this.highlight %}
+                onEachFeature: {{ this.get_name() }}_onEachFeature,
+            {%- endif %}
+            }
+        ).addTo({{ this._parent.get_name()}} );
         {{this.get_name()}}.setStyle(function(feature) {return feature.properties.style;});
         {% endmacro %}
         """)  # noqa
@@ -416,19 +444,37 @@ class GeoJson(Layer):
                 data = data.to_crs(epsg='4326')
             self.data = json.loads(json.dumps(data.__geo_interface__))  # noqa
         else:
-            raise ValueError('Unhandled object {!r}.'.format(data))
+            raise ValueError('Cannot render objects with any missing geometries. {!r}'.format(data))
+
         self.style_function = style_function or (lambda x: {})
 
         self.highlight = highlight_function is not None
-
         self.highlight_function = highlight_function or (lambda x: {})
 
         self.smooth_factor = smooth_factor
+
+        self._validate_function(self.style_function, 'style_function')
+        self._validate_function(self.highlight_function, 'highlight_function')
 
         if isinstance(tooltip, (GeoJsonTooltip, Tooltip)):
             self.add_child(tooltip)
         elif tooltip is not None:
             self.add_child(Tooltip(tooltip))
+
+        self.parent_map = None
+        self.json = None
+
+    def _validate_function(self, func, name):
+        """
+        Tests `self.style_function` and `self.highlight_function` to ensure
+        they are functions returning dictionaries.
+        """
+        test_feature = self.data if self.data.get('features') is None \
+            else self.data['features'][0]
+        if not callable(func) or not isinstance(func(test_feature), dict):
+            raise ValueError('{} should be a function that accepts items from '
+                             'data[\'features\'] and returns a dictionary.'
+                             .format(name))
 
     def style_data(self):
         """
@@ -444,9 +490,24 @@ class GeoJson(Layer):
             self.data = {'type': 'FeatureCollection', 'features': [self.data]}
 
         for feature in self.data['features']:
-            feature.setdefault('properties', {}).setdefault('style', {}).update(self.style_function(feature))  # noqa
-            feature.setdefault('properties', {}).setdefault('highlight', {}).update(self.highlight_function(feature))  # noqa
-        return json.dumps(self.data, sort_keys=True)
+            feature_style = self.style_function(feature)
+            for key, value in feature_style.items():
+                if isinstance(value, MacroElement):
+                    # Make sure objects are rendered:
+                    if value._parent is None:
+                        value._parent = self
+                        value.render()
+                    # Replace objects with their Javascript var names:
+                    feature_style[key] = "{{'" + value.get_name() + "'}}"
+
+            feature.setdefault('properties', {}).setdefault('style', {}) \
+                .update(feature_style)
+            feature.setdefault('properties', {}).setdefault('highlight', {}) \
+                .update(self.highlight_function(feature))
+
+        data_json = json.dumps(self.data, sort_keys=True)
+        # Remove quotes around Jinja2 template expressions:
+        return data_json.replace('"{{', '{{').replace('}}"', '}}')
 
     def _get_self_bounds(self):
         """
@@ -455,6 +516,11 @@ class GeoJson(Layer):
 
         """
         return get_bounds(self.data, lonlat=True)
+
+    def render(self, **kwargs):
+        self.parent_map = get_obj_in_upper_tree(self, Map)
+        self.json = self.style_data() if self.embed else json.dumps(self.data)
+        super(GeoJson, self).render()
 
 
 class TopoJson(Layer):
@@ -560,11 +626,13 @@ class TopoJson(Layer):
         a corresponding JSON output.
 
         """
+
         def recursive_get(data, keys):
             if len(keys):
                 return recursive_get(data.get(keys[0]), keys[1:])
             else:
                 return data
+
         geometries = recursive_get(self.data, self.object_path.split('.'))['geometries']  # noqa
         for feature in geometries:
             feature.setdefault('properties', {}).setdefault('style', {}).update(self.style_function(feature))  # noqa
@@ -646,7 +714,7 @@ class GeoJsonTooltip(Tooltip):
     Examples
     --------
     # Provide fields and aliases, with Style.
-    >>> Tooltip(
+    >>> GeoJsonTooltip(
     >>>     fields=['CNTY_NM', 'census-pop-2015', 'census-md-income-2015'],
     >>>     aliases=['County', '2015 Census Population', '2015 Median Income'],
     >>>     localize=True,
@@ -654,7 +722,7 @@ class GeoJsonTooltip(Tooltip):
     >>>            'courier new; font-size: 24px; padding: 10px;')
     >>> )
     # Provide fields, with labels off and fixed tooltip positions.
-    >>> Tooltip(fields=('CNTY_NM',), labels=False, sticky=False)
+    >>> GeoJsonTooltip(fields=('CNTY_NM',), labels=False, sticky=False)
     """
     _template = Template(u"""
         {% macro script(this, kwargs) %}
@@ -701,8 +769,8 @@ class GeoJsonTooltip(Tooltip):
                                                 ' the same length.'
         assert isinstance(labels, bool), 'labels requires a boolean value.'
         assert isinstance(localize, bool), 'localize must be bool.'
-        assert 'permanent' not in kwargs,  'The `permanent` option does not ' \
-                                           'work with GeoJsonTooltip.'
+        assert 'permanent' not in kwargs, 'The `permanent` option does not ' \
+                                          'work with GeoJsonTooltip.'
 
         self.fields = fields
         self.aliases = aliases
@@ -714,10 +782,24 @@ class GeoJsonTooltip(Tooltip):
             # noqa outside of type checking.
             self.style = style
 
+    def warn_for_geometry_collections(self):
+        """Checks for GeoJson GeometryCollection features to warn user about incompatibility."""
+        geom_collections = [
+            feature.get('properties') if feature.get('properties') is not None else key
+            for key, feature in enumerate(self._parent.data['features'])
+            if feature['geometry']['type'] == 'GeometryCollection'
+        ]
+        if any(geom_collections):
+            warnings.warn(
+                "GeoJsonTooltip is not configured to render tooltips for GeoJson GeometryCollection geometries. "
+                "Please consider reworking these features: {} to MultiPolygon for full functionality.\n"
+                "https://tools.ietf.org/html/rfc7946#page-9".format(geom_collections), UserWarning)
+
     def render(self, **kwargs):
         """Renders the HTML representation of the element."""
         if isinstance(self._parent, GeoJson):
             keys = tuple(self._parent.data['features'][0]['properties'].keys())
+            self.warn_for_geometry_collections()
         elif isinstance(self._parent, TopoJson):
             obj_name = self._parent.object_path.split('.')[-1]
             keys = tuple(self._parent.data['objects'][obj_name][
@@ -732,7 +814,127 @@ class GeoJsonTooltip(Tooltip):
         super(GeoJsonTooltip, self).render(**kwargs)
 
 
-class GeoJsonPopup(GeoJsonTooltip, MacroElement):
+class GeoJsonDetail(MacroElement):
+    template = u"""
+    function(layer){
+    let div = L.DomUtil.create('div',{{this.class_name | tojson | safe}});
+    {% if this.fields %}
+    let handleObject = (feature)=>typeof(feature)=='object' ? JSON.stringify(feature) : feature;
+    let fields = {{ this.fields | tojson | safe }};
+    {% if this.aliases %}
+    let aliases = {{ this.aliases | tojson | safe }};
+    {%- endif %}
+    let table = '<table>' +
+    String(
+        fields.map(
+        columnname=>
+            `<tr style="text-align: left;">{% if this.labels %}
+            <th style="padding: 4px; padding-right: 10px;">{% if this.aliases %}
+                ${aliases[fields.indexOf(columnname)]
+                {% if this.localize %}.toLocaleString(){% endif %}}
+            {% else %}
+            ${ columnname{% if this.localize %}.toLocaleString(){% endif %}}
+            {% endif %}</th>
+            {% endif %}
+            <td style="padding: 4px;">${handleObject(layer.feature.properties[columnname])
+            {% if this.localize %}.toLocaleString(){% endif %}}</td></tr>`
+        ).join(''))
+    +'</table>'
+    {%- endif %}
+    {% if this.vegalite %}
+    let {{ this._parent.get_name() }}baseSpec = {{ this.vegalite.data|tojson|safe }};
+    
+    const {{ this._parent.get_name() }}datasets = {{ this._parent.get_name() }}baseSpec['datasets']
+    
+    let mapValue = layer.feature.properties[{{ this.map_key | tojson | safe}}]
+    let dataKey = {{this.data_key | tojson | safe}}
+    Object.keys({{ this._parent.get_name() }}datasets).forEach(function(k){
+        {{ this._parent.get_name() }}baseSpec['datasets'][k]={{ this._parent.get_name() }}datasets[k].filter(o=>o[dataKey]==mapValue) #noqa
+    })
+    let chartembed = L.DomUtil.create('div','foliumchart')
+    div.appendChild(chartembed)
+    let spec = joinChart({{this._parent.get_name()}}baseSpec, mapValue, dataKey)
+    vegaEmbed(chartembed, {{ this._parent.get_name()}}baseSpec)
+    {% endif %}
+    return div
+    }
+    """
+
+    def __init__(self, fields, aliases=None, labels=True, localize=False, style=None, class_name="geojsondetail",
+                 vegalite=None, map_key=None, data_key=None):
+
+        assert isinstance(fields, (list, tuple)), 'Please pass a list or ' \
+                                                  'tuple to fields.'
+        if aliases is not None:
+            assert isinstance(aliases, (list, tuple))
+            assert len(fields) == len(aliases), 'fields and aliases must have' \
+                                                ' the same length.'
+        assert isinstance(labels, bool), 'labels requires a boolean value.'
+        assert isinstance(localize, bool), 'localize must be bool.'
+        assert 'permanent' not in kwargs, 'The `permanent` option does not ' \
+                                          'work with GeoJsonTooltip.'
+        self._name = "GeoJsonDetail"
+        self.fields = fields
+        self.aliases = aliases
+        self.labels = labels
+        self.localize = localize
+        self.class_name = class_name
+        self.style = style
+
+        for chart_arg in [vegalite, map_key, data_key]:
+            if chart_arg is not None:
+                if not all([vegalite, map_key, data_key]):
+                    raise ValueError("Pass all 3 arguments (vegalite, map_key, and data_key) to embed a Vega-Lite spec"
+                                     " in this GeoJson layer.")
+        if vegalite is not None:
+            if not isinstance(vegalite, VegaLite):
+                raise ValueError("Pass a folium VegaLite object to the vegalite argument.")
+            self.map_key = map_key
+            self.data_key = data_key
+
+        if style:
+            assert isinstance(style, str) and len(style.split(':')) > 1, \
+                'Pass a valid inline HTML style property string to style.'
+            self.style = style
+            # noqa outside of type checking.
+
+    def warn_for_geometry_collections(self):
+        """Checks for GeoJson GeometryCollection features to warn user about incompatibility."""
+        geom_collections = [
+            feature.get('properties') if feature.get('properties') is not None else key
+            for key, feature in enumerate(self._parent.data['features'])
+            if feature['geometry']['type'] == 'GeometryCollection'
+        ]
+        if any(geom_collections):
+            warnings.warn(
+                "GeoJsonTooltip is not configured to render tooltips for GeoJson GeometryCollection geometries. "
+                "Please consider reworking these features: {} to MultiPolygon for full functionality.\n"
+                "https://tools.ietf.org/html/rfc7946#page-9".format(geom_collections), UserWarning)
+
+    def render(self, **kwargs):
+        """Renders the HTML representation of the element."""
+        figure = self.get_root()
+        if isinstance(self._parent, GeoJson):
+            keys = tuple(self._parent.data['features'][0]['properties'].keys())
+            self.warn_for_geometry_collections()
+        elif isinstance(self._parent, TopoJson):
+            obj_name = self._parent.object_path.split('.')[-1]
+            keys = tuple(self._parent.data['objects'][obj_name][
+                             'geometries'][0]['properties'].keys())
+        else:
+            raise TypeError('You cannot add a {} to anything other '
+                            'than a GeoJson or TopoJson object.'.format(self._name))
+        keys = tuple(x for x in keys if x not in ('style', 'highlight'))
+        for value in self.fields:
+            assert value in keys, ('The field {} is not available in the data. '
+                                   'Choose from: {}.'.format(value, keys))
+        if self.style is not None:
+            figure.add_child(Template(u".{{ this.class_name }}{{{ this.style }}}"))
+
+        super(GeoJsonDetail, self).render()
+
+
+class GeoJsonPopup(GeoJsonDetail):
     """
     Create a popup feature to bind to each element of a GeoJson layer based on its attributes.
 
@@ -775,95 +977,59 @@ class GeoJsonPopup(GeoJsonTooltip, MacroElement):
 
     folium.features.GeoJsonPopup(fields=['NAME'],
                                 labels=False,
-                                vegalite = chart,
+                                vegalite=chart,
                                 map_key='county_code',
                                 data_key='fips'
                                 ).add_to(gjson)
     """
-    _template = Template(u"""
-        {% macro script(this, kwargs) %}
-        {{ this._parent.get_name() }}.bindPopup(function(layer){
-            let d = L.DomUtil.create('div','foliumpopup')
-            {% if this.fields %}
-            let handleObject = (feature)=>typeof(feature)=='object' ? JSON.stringify(feature) : feature;
-            let table = L.DomUtil.create('div','foliumtable')
-            d.appendChild(table)
-            let fields = {{ this.fields }}
-            let aliases = {{this.aliases|tojson|safe}}
-            table.innerHTML = '<table{% if this.style %} style={{this.style|tojson|safe}}{% endif %}>' +
-            String(
-                fields.map(
-                columnname=>
-                    `<tr style="text-align: left;">{% if this.labels %}
-                    <th style="padding: 4px; padding-right: 10px;">{% if this.aliases %}
-                        ${aliases[fields.indexOf(columnname)]
-                        {% if this.localize %}.toLocaleString(){% endif %}}
-                    {% else %}
-                    ${ columnname{% if this.localize %}.toLocaleString(){% endif %}}
-                    {% endif %}</th>
-                    {% endif %}
-                    <td style="padding: 4px;">${handleObject(layer.feature.properties[columnname])
-                    {% if this.localize %}.toLocaleString(){% endif %}}</td></tr>`
-                ).join(''))
-            +'</table>'
-            {% endif %}
-            {% if this.vegalite %}
-            const {{ this._parent.get_name() }}baseSpec = {{ this.vegalite.data|tojson|safe }};
-            function joinChart(spec, mapValue, dataKey){
-                let model = spec;
-                Object.keys(spec['datasets']).forEach(i=>{model['datasets'][i]=spec['datasets'][i].filter(k=>k[dataKey]==mapValue)});
-                return model
-            };
-            let chartembed = L.DomUtil.create('div','foliumchart')
-            d.appendChild(chartembed)
-            let mapValue = layer.feature.properties['{{this.map_key}}']
-            let dataKey = '{{this.data_key}}'
-            let spec = joinChart({{this._parent.get_name()}}baseSpec, mapValue, dataKey)
-            vegaEmbed(chartembed, spec)
-            {% endif %}
-            return d
-        },{{ this.popup_options }})
-        {% endmacro %}
-        """)
 
-    def __init__(self, fields=None, aliases=None, labels=True,
-                 localize=False, style="margin: auto;", vegalite=None, map_key=None, data_key=None,
-                 class_name='foliumpopup', **kwargs):
-        # super(GeoJsonPopup, self).__init__()
+    base_template = u"""
+    {% macro script(this, kwargs) %}
+    {{ this._parent.get_name() }}.bindPopup("""+\
+    GeoJsonDetail.template+\
+    """,{{ this.popup_options }})
+    {% endmacro %}"""
+    _template = Template()
+
+    def __init__(self, fields=None, aliases=None, labels=True, style="margin: auto;", vegalite=None, map_key=None,
+                 data_key=None, class_name='foliumpopup', localize=True, **kwargs):
+        super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize,
+                                           vegalite=vegalite, map_key=map_key, data_key=data_key, class_name=class_name,
+                                           style=style)
         self._name = "GeoJsonPopup"
-        self.style = style
-        self.class_name = class_name
         kwargs.update({'class_name': self.class_name})
         kwargs = {camelize(key): value for key, value in kwargs.items()}
         self.popup_options = json.dumps(kwargs)
-        if fields is not None:
-            super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize)
-        self.vegalite = vegalite
-        for chart_arg in [vegalite, map_key, data_key]:
-            if chart_arg is not None:
-                assert all([vegalite, map_key, data_key]), "Pass all 3 arguments (vegalite, map_key, and data_key) to" \
-                                                           " embed a Vega-Lite spec in this GeoJson layer."
-        if vegalite is not None:
-            assert isinstance(vegalite, VegaLite), "Pass a folium VegaLite object to the vegalite argument."
-            self.map_key = map_key
-            self.data_key = data_key
-
-    def render(self):
-        figure = self.get_root()
-        figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega@3"))
-        figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@2"))
-        figure.header.add_child(CssLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.css"))
-        figure.header.add_child(
-            JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js")
-        )
-        figure.header.add_child(Element(Template(u"""
-        <style>
-        .{{ this.class_name }}{
-            {{this.style}}
-        }
-        </style>
-        """).render(this=self)), name=self.get_name())
-        super(GeoJsonPopup, self).render()
+    #     if fields is not None:
+    #         super(GeoJsonPopup, self).__init__(fields=fields, aliases=aliases, labels=labels, localize=localize)
+    #     self.vegalite = vegalite
+    #     for chart_arg in [vegalite, map_key, data_key]:
+    #         if chart_arg is not None:
+    #             if not all([vegalite, map_key, data_key]):
+    #                 raise ValueError("Pass all 3 arguments (vegalite, map_key, and data_key) to embed a Vega-Lite spec"
+    #                                  " in this GeoJson layer.")
+    #     if vegalite is not None:
+    #         if not isinstance(vegalite, VegaLite):
+    #             raise ValueError("Pass a folium VegaLite object to the vegalite argument.")
+    #         self.map_key = map_key
+    #         self.data_key = data_key
+    #
+    # def render(self):
+    #     figure = self.get_root()
+    #     figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega@3"))
+    #     figure.header.add_child(JavascriptLink("https://cdn.jsdelivr.net/npm/vega-lite@2"))
+    #     figure.header.add_child(CssLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.css"))
+    #     figure.header.add_child(
+    #         JavascriptLink("https://cdnjs.cloudflare.com/ajax/libs/vega-embed/3.20.0/vega-embed.js")
+    #     )
+    #     figure.header.add_child(Element(Template(u"""
+    #     <style>
+    #     .{{ this.class_name }}{
+    #         {{this.style}}
+    #     }
+    #     </style>
+    #     """).render(this=self)), name=self.get_name())
+    #     super(GeoJsonPopup, self).render()
 
 class Choropleth(FeatureGroup):
     """Apply a GeoJSON overlay to the map.
@@ -971,7 +1137,7 @@ class Choropleth(FeatureGroup):
     ...            highlight=True)
     """
 
-    def __init__(self, geo_data, data=None, columns=None, key_on=None,    # noqa
+    def __init__(self, geo_data, data=None, columns=None, key_on=None,  # noqa
                  bins=6, fill_color='blue', nan_fill_color='black',
                  fill_opacity=0.6, nan_fill_opacity=None, line_color='black',
                  line_weight=1, line_opacity=1, name=None, legend_name='',
@@ -1131,10 +1297,10 @@ class DivIcon(MacroElement):
     html : string
         A custom HTML code to put inside the div element.
 
-
-    http://leafletjs.com/reference-1.2.0.html#divicon
+    See https://leafletjs.com/reference-1.4.0.html#divicon
 
     """
+
     _template = Template(u"""
             {% macro script(this, kwargs) %}
 
@@ -1143,7 +1309,7 @@ class DivIcon(MacroElement):
                     {% if this.icon_anchor %}iconAnchor: [{{this.icon_anchor[0]}},{{this.icon_anchor[1]}}],{% endif %}
                     {% if this.popup_anchor %}popupAnchor: [{{this.popup_anchor[0]}},{{this.popup_anchor[1]}}],{% endif %}
                     {% if this.className %}className: '{{this.className}}',{% endif %}
-                    {% if this.html %}html: '{{this.html}}',{% endif %}
+                    {% if this.html %}html: `{{this.html}}`,{% endif %}
                     });
                 {{this._parent.get_name()}}.setIcon({{this.get_name()}});
             {% endmacro %}
@@ -1317,6 +1483,7 @@ class ColorLine(FeatureGroup):
     A ColorLine object that you can `add_to` a Map.
 
     """
+
     def __init__(self, positions, colors, colormap=None, nb_steps=12,
                  weight=None, opacity=None, **kwargs):
         super(ColorLine, self).__init__(**kwargs)
