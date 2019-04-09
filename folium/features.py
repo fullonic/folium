@@ -91,7 +91,8 @@ class RegularPolygonMarker(Marker):
                                             'if it is not in a Figure.')
 
         figure.header.add_child(
-            JavascriptLink('https://cdnjs.cloudflare.com/ajax/libs/leaflet-dvf/0.3.0/leaflet-dvf.markers.min.js'),
+            JavascriptLink(
+                'https://cdnjs.cloudflare.com/ajax/libs/leaflet-dvf/0.3.0/leaflet-dvf.markers.min.js'),
             # noqa
             name='dvf_js')
 
@@ -284,15 +285,19 @@ class VegaLite(Element):
         self._vega_embed()
 
         figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega@4'), name='vega')
-        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-lite@3'), name='vega-lite')
-        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
+        figure.header.add_child(JavascriptLink(
+            'https://cdn.jsdelivr.net/npm/vega-lite@3'), name='vega-lite')
+        figure.header.add_child(JavascriptLink(
+            'https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
 
     def _embed_vegalite_v2(self, figure):
         self._vega_embed()
 
         figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega@3'), name='vega')
-        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-lite@2'), name='vega-lite')
-        figure.header.add_child(JavascriptLink('https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
+        figure.header.add_child(JavascriptLink(
+            'https://cdn.jsdelivr.net/npm/vega-lite@2'), name='vega-lite')
+        figure.header.add_child(JavascriptLink(
+            'https://cdn.jsdelivr.net/npm/vega-embed@3'), name='vega-embed')
 
     def _vega_embed(self):
         self._parent.script.add_child(Element(Template("""
@@ -901,7 +906,7 @@ class GeoJsonTooltip(Tooltip):
         elif isinstance(self._parent, TopoJson):
             obj_name = self._parent.object_path.split('.')[-1]
             keys = tuple(self._parent.data['objects'][obj_name][
-                             'geometries'][0]['properties'].keys())
+                'geometries'][0]['properties'].keys())
         else:
             raise TypeError('You cannot add a GeoJsonTooltip to anything else '
                             'than a GeoJson or TopoJson object.')
@@ -910,6 +915,35 @@ class GeoJsonTooltip(Tooltip):
             assert value in keys, ('The field {} is not available in the data. '
                                    'Choose from: {}.'.format(value, keys))
         super(GeoJsonTooltip, self).render(**kwargs)
+
+
+class DynamicGeoJson(MacroElement):
+    _template = Template("""
+    {% macro script(this, kwargs) %}
+
+    // JS vars: Revision needed !!
+    var lat_lon, nE, sW = "";
+    {{ this._parent.parent_map.get_name() }}.on("{{ this.action }}", function() {
+      // This will get all map bounds and make all 2 points coordinates available for later use in API
+      // call
+      lat_lon={{ this._parent.parent_map.get_name() }}.getBounds();
+      sW=lat_lon._southWest.lng.toString() + "+" + lat_lon._southWest.lat.toString();
+      nE=lat_lon._northEast.lng.toString() + "+" + lat_lon._northEast.lat.toString();
+
+      // This will make a new rest api call.
+      var data= $.parseJSON($.ajax({{ this.api_parameters }}).responseText);
+
+      {{ this._parent.get_name() }}.clearLayers();
+      {{ this._parent.get_name() }}.addData(data);});
+
+      {% endmacro %}
+    """)
+
+    def __init__(self, action="moveend", api_parameters=None, **kwargs):
+        super(DynamicGeoJson, self).__init__(**kwargs)
+        self._name = "DynamicGeoJson"
+        self.action = action
+        self.api_parameters = parse_options(api_parameters=api_parameters)
 
 
 class Choropleth(FeatureGroup):
