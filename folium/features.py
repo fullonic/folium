@@ -440,7 +440,7 @@ class GeoJson(Layer):
 
     def __init__(self, data, style_function=None, highlight_function=None,  # noqa
                  name=None, overlay=True, control=True, show=True,
-                 smooth_factor=None, tooltip=None, embed=True):
+                 smooth_factor=None, tooltip=None, embed=True, dynamic=None):
         super(GeoJson, self).__init__(name=name, overlay=overlay,
                                       control=control, show=show)
         self._name = 'GeoJson'
@@ -451,6 +451,8 @@ class GeoJson(Layer):
         self.smooth_factor = smooth_factor
         self.style = style_function is not None
         self.highlight = highlight_function is not None
+        if dynamic is not None:
+            self.add_child(dynamic)
 
         self.data = self.process_data(data)
 
@@ -931,7 +933,11 @@ class DynamicGeoJson(MacroElement):
       nE=lat_lon._northEast.lng.toString() + "+" + lat_lon._northEast.lat.toString();
 
       // This will make a new rest api call.
-      var data= $.parseJSON($.ajax({{ this.api_parameters }}).responseText);
+      var url = "{{ this.url_root }}" + {{ this.pattern }};
+      var parameters = {{ this.api_parameters|tojson }};
+      parameters.url = url;
+
+      var data= $.parseJSON($.ajax(parameters).responseText);
 
       {{ this._parent.get_name() }}.clearLayers();
       {{ this._parent.get_name() }}.addData(data);});
@@ -939,11 +945,14 @@ class DynamicGeoJson(MacroElement):
       {% endmacro %}
     """)
 
-    def __init__(self, action="moveend", api_parameters=None, **kwargs):
+    def __init__(self, action="moveend", url_root=None, pattern=None,
+                 api_parameters=None, **kwargs):
         super(DynamicGeoJson, self).__init__(**kwargs)
         self._name = "DynamicGeoJson"
         self.action = action
-        self.api_parameters = parse_options(api_parameters=api_parameters)
+        self.api_parameters = api_parameters
+        self.url_root = url_root
+        self.pattern = pattern
 
 
 class Choropleth(FeatureGroup):
