@@ -352,7 +352,7 @@ class GeoJson(Layer):
         How much to simplify the polyline on each zoom level. More means
         better performance and smoother look, and less means more accurate
         representation. Leaflet defaults to 1.0.
-    tooltip: GeoJsonTooltip, Tooltip or str, default None
+    tooltip: GeoJsonTooltip, Tooltip or str, default Noneclass Dyn
         Display a text when hovering over the object. Can utilize the data,
         see folium.GeoJsonTooltip for info on how to do that.
     embed: bool, default True
@@ -928,43 +928,54 @@ class GeoJsonTooltip(Tooltip):
 
 class DynamicGeoJson(MacroElement):
     """ GeoJson feature to consume live API data.
+    ***Experimental***
+
+    Parameters
+    ----------
+    action: str, default "moveend"
+        What actions is need to performance in order to make a api call. For possible actions,
+        See https://leafletjs.com/reference-1.4.0.html#map-zoomlevelschange
+    api_parameters: dict,
+    url_root
+    pattern
+    order
+    delimiter
+
     """
     _template = Template("""
     {% macro script(this, kwargs) %}
 
     // JS vars: Revision needed !!
     {{ this._parent.parent_map.get_name() }}.on("{{ this.action }}", function() {
-      // This will get all map bounds and make all 2 points coordinates available for later use in API
-      // call
+    // This will get all map bounds and make all 2 points coordinates available for later use in API
+    // call
 
-      d = "{{ this.delimiter }}";
-      latlng={{ this._parent.parent_map.get_name() }}.getBounds();
-      nW = latlng._southWest.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
-      nE = latlng._northEast.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
-      sE = latlng._northEast.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
-      sW = latlng._southWest.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
+    d = "{{ this.delimiter }}";
+    latlng={{ this._parent.parent_map.get_name() }}.getBounds();
+    nW = latlng._southWest.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
+    nE = latlng._northEast.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
+    sE = latlng._northEast.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
+    sW = latlng._southWest.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
 
-      // This will make a new rest api call.
-      var url = "{{ this.url_root }}" + {{ this.pattern }};
-      var parameters = {{ this.api_parameters|tojson }};
-      parameters.url = url;
+    // This will make a new rest api call.
+    var url = "{{ this.url_root }}" + {{ this.pattern }};
+    $.ajax({url: url, dataType: 'json', async: true,
+        success: function(data) {
+        {{ this._parent.get_name() }}.clearLayers();
+        {{ this._parent.get_name() }}.addData(data);
+        }});
+    });
 
-      var data= $.parseJSON($.ajax(parameters).responseText);
-
-      {{ this._parent.get_name() }}.clearLayers();
-      {{ this._parent.get_name() }}.addData(data);});
-
-      {% endmacro %}
+    {% endmacro %}
     """)
 
-    def __init__(self, action="moveend", url_root=None, pattern=None,
-                 api_parameters=None, order=("lng", "lat"), delimiter=","):
+    def __init__(self, action="moveend", url_root=None,
+                 url_pattern=None, order=("lng", "lat"), delimiter=","):
         super(DynamicGeoJson, self).__init__()
         self._name = "DynamicGeoJson"
         self.action = action
-        self.api_parameters = api_parameters
         self.url_root = url_root
-        self.pattern = pattern
+        self.pattern = url_pattern
         self.order = order
         self.delimiter = delimiter
 
