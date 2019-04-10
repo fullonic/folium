@@ -927,6 +927,8 @@ class GeoJsonTooltip(Tooltip):
 
 
 class DynamicGeoJson(MacroElement):
+    """ GeoJson feature to consume live API data.
+    """
     _template = Template("""
     {% macro script(this, kwargs) %}
 
@@ -934,11 +936,13 @@ class DynamicGeoJson(MacroElement):
     {{ this._parent.parent_map.get_name() }}.on("{{ this.action }}", function() {
       // This will get all map bounds and make all 2 points coordinates available for later use in API
       // call
+
+      d = "{{ this.delimiter }}";
       latlng={{ this._parent.parent_map.get_name() }}.getBounds();
-      nW = latlng._southWest.lng + "," + latlng._northEast.lat;
-      nE = latlng._northEast.lng + "," + latlng._northEast.lat;
-      sE = latlng._northEast.lng + "," + latlng._southWest.lat;
-      sW = latlng._southWest.lng + "," + latlng._southWest.lat;
+      nW = latlng._southWest.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
+      nE = latlng._northEast.{{ this.order[0] }} + d + latlng._northEast.{{ this.order[1] }}
+      sE = latlng._northEast.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
+      sW = latlng._southWest.{{ this.order[0] }} + d + latlng._southWest.{{ this.order[1] }}
 
       // This will make a new rest api call.
       var url = "{{ this.url_root }}" + {{ this.pattern }};
@@ -954,13 +958,15 @@ class DynamicGeoJson(MacroElement):
     """)
 
     def __init__(self, action="moveend", url_root=None, pattern=None,
-                 api_parameters=None, **kwargs):
-        super(DynamicGeoJson, self).__init__(**kwargs)
+                 api_parameters=None, order=("lng", "lat"), delimiter=","):
+        super(DynamicGeoJson, self).__init__()
         self._name = "DynamicGeoJson"
         self.action = action
         self.api_parameters = api_parameters
         self.url_root = url_root
         self.pattern = pattern
+        self.order = order
+        self.delimiter = delimiter
 
 
 class Choropleth(FeatureGroup):
