@@ -927,7 +927,12 @@ class GeoJsonTooltip(Tooltip):
 
 
 class DynamicGeoJson(MacroElement):
-    """ GeoJson feature to consume live API data.
+    """ GeoJson feature to consume live API data based on map bounds.
+
+    Each time an event happen making the maps bound change, the four vertices of the map bounds will
+    be saved in 4 variables: nW, nE, sE, sW. Using this 4 vertices, a API request can be made
+    to provide geographic information that is present inside this map bound. This data is acquired
+    by using leaflet .getBounds()
     ***Experimental***
 
     Parameters
@@ -935,11 +940,30 @@ class DynamicGeoJson(MacroElement):
     action: str, default "moveend"
         What actions is need to performance in order to make a api call. For possible actions,
         See https://leafletjs.com/reference-1.4.0.html#map-zoomlevelschange
-    api_parameters: dict,
-    url_root
-    pattern
-    order
-    delimiter
+    url_root: str, default None
+        The root of your api without the endpoint variables
+        example: "https://api.somesource/apiv1/"
+    url_pattern: str, default None
+        This will be the endpoint pattern need to make the request, a python string but will be
+        evaluate by javascript.
+        See example bellow
+    order: tuple, default ("lng", "lat")
+        Order of the coordinates that present each point: ("lng", "lat") or ("lat", "lng")
+    delimiter: str, default ","
+        How lng and lat of each point is separated
+
+    Examples
+    --------
+    # Create first the url:
+    url_root = "https://api.somesource/apiv1/"
+    # Will be allays 4 points available: nW, nE, sE, sW.
+    # If all them are necessary and each joined by a '&', the pattern would be:
+    url_pattern = "nW+'&'+nE+'&'+sE+'&'+sW"
+
+    # Now we just need to create a new GeoJson layer and make it dynamically
+    folium.GeoJson(geo_data, dynamic=folium.DynamicGeoJson(,
+                       url_root=url_root,
+                       url_pattern=url_pattern)).add_to(map)
 
     """
     _template = Template("""
