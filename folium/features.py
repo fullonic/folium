@@ -931,13 +931,14 @@ class DynamicGeoJson(MacroElement):
     {% macro script(this, kwargs) %}
 
     // JS vars: Revision needed !!
-    var lat_lon, nE, sW = "";
     {{ this._parent.parent_map.get_name() }}.on("{{ this.action }}", function() {
       // This will get all map bounds and make all 2 points coordinates available for later use in API
       // call
-      lat_lon={{ this._parent.parent_map.get_name() }}.getBounds();
-      sW=lat_lon._southWest.lng.toString() + "+" + lat_lon._southWest.lat.toString();
-      nE=lat_lon._northEast.lng.toString() + "+" + lat_lon._northEast.lat.toString();
+      latlng={{ this._parent.parent_map.get_name() }}.getBounds();
+      nW = latlng._southWest.lng + "," + latlng._northEast.lat;
+      nE = latlng._northEast.lng + "," + latlng._northEast.lat;
+      sE = latlng._northEast.lng + "," + latlng._southWest.lat;
+      sW = latlng._southWest.lng + "," + latlng._southWest.lat;
 
       // This will make a new rest api call.
       var url = "{{ this.url_root }}" + {{ this.pattern }};
