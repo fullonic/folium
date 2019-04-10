@@ -419,6 +419,12 @@ class GeoJson(Layer):
             });
         };
         var {{ this.get_name() }} = L.geoJson(null, {
+            {% if this.circle_marker %}
+            pointToLayer: function(feature, latlng) {
+            var options = {{ this.circle_marker.options|tojson }};
+              return L.circleMarker(latlng, options);
+            },
+            {% endif %}
             {%- if this.smooth_factor is not none  %}
                 smoothFactor: {{ this.smooth_factor|tojson }},
             {%- endif %}
@@ -440,7 +446,7 @@ class GeoJson(Layer):
 
     def __init__(self, data, style_function=None, highlight_function=None,  # noqa
                  name=None, overlay=True, control=True, show=True,
-                 smooth_factor=None, tooltip=None, embed=True, dynamic=None):
+                 smooth_factor=None, tooltip=None, embed=True, dynamic=None, circle_marker=None):
         super(GeoJson, self).__init__(name=name, overlay=overlay,
                                       control=control, show=show)
         self._name = 'GeoJson'
@@ -453,6 +459,7 @@ class GeoJson(Layer):
         self.highlight = highlight_function is not None
         if dynamic is not None:
             self.add_child(dynamic)
+        self.circle_marker = circle_marker
 
         self.data = self.process_data(data)
 
