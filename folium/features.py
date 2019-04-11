@@ -352,7 +352,7 @@ class GeoJson(Layer):
         How much to simplify the polyline on each zoom level. More means
         better performance and smoother look, and less means more accurate
         representation. Leaflet defaults to 1.0.
-    tooltip: GeoJsonTooltip, Tooltip or str, default Noneclass Dyn
+    tooltip: GeoJsonTooltip, Tooltip or str, default None
         Display a text when hovering over the object. Can utilize the data,
         see folium.GeoJsonTooltip for info on how to do that.
     embed: bool, default True
@@ -987,6 +987,10 @@ class DynamicGeoJson(MacroElement):
         success: function(data) {
         {{ this._parent.get_name() }}.clearLayers();
         {{ this._parent.get_name() }}.addData(data);
+        {% if this._parent._parent.get_name()|truncate(14, True, "") == "marker_cluster" %}
+        {{ this._parent._parent.get_name() }}.clearLayers();
+        {{ this._parent.get_name() }}.addTo({{ this._parent._parent.get_name() }});
+        {% endif %}
         }});
     });
 
