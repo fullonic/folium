@@ -11,6 +11,7 @@ class PanelLayer(MacroElement):
         function iconName(name) {
         	return '<i class="'+name+'"></i>';}
 
+        {% if this.raster %}
         var baseLayers = [{
             group: "{{ this.group_name }}",
             icon: "{{ this.icon }}",
@@ -22,6 +23,8 @@ class PanelLayer(MacroElement):
             {%- endfor %}
             ]
         }];
+        {% else %}var baseLayers = null;{% endif %}
+        {% if this.vector %}
         var overLayers = [
         {%- for key, layer, icon in this.overlayers_data %}
         { name: {{ key|tojson }},
@@ -29,6 +32,8 @@ class PanelLayer(MacroElement):
         layer: {{layer}} },
         {%- endfor %}
         ];
+        {% else %} var overLayers = null;{% endif %}
+
         var panelLayers = new L.Control.PanelLayers(
                 baseLayers,
                 overLayers,
@@ -42,17 +47,21 @@ class PanelLayer(MacroElement):
         {% endmacro %}
         """)
 
-    def __init__(self, group_name=None, group_collapsed=False,
-                 icons=None, collapsibleGroups=True, collapsed=True, **kwargs):  # noqa
+    def __init__(self, group_name=None, group_collapsed=True,
+                 icons=None, collapsible_groups=True, collapsed=True,
+                 raster=True, vector=True,
+                 **kwargs):  # noqa
         super(PanelLayer, self).__init__()
         self._name = "PanelLayer"
         self.collapsed = True
         self.group_name = group_name or "Define a Group Name"
         self.options = parse_options(
             collapsed=collapsed,
-            collapsibleGroups=collapsibleGroups,
+            collapsible_groups=collapsible_groups,
             **kwargs)
         self.icons = icons
+        self.raster = raster
+        self.vector = vector
         self.base_layers = OrderedDict()
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
