@@ -33,6 +33,7 @@ from folium.plugins.terminator import Terminator
 from folium.plugins.time_slider_choropleth import TimeSliderChoropleth
 from folium.plugins.timestamped_geo_json import TimestampedGeoJson
 from folium.plugins.timestamped_wmstilelayer import TimestampedWmsTileLayers
+from folium.plugins.panel_layer import PanelLayer
 
 __all__ = [
     'AntPath',
@@ -48,6 +49,7 @@ __all__ = [
     'HeatMap',
     'HeatMapWithTime',
     'LocateControl',
+    'PanelLayer',
     'MarkerCluster',
     'MeasureControl',
     'MiniMap',

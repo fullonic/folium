@@ -8,6 +8,9 @@ from ..map import Layer
 class PanelLayer(MacroElement):
     _template = Template("""
         {% macro script(this,kwargs) %}
+        function iconName(name) {
+        	return '<i class="'+name+'"></i>';}
+
         var baseLayers = [{
             group: "{{ this.group_name }}",
             icon: "{{ this.icon }}",
@@ -19,14 +22,13 @@ class PanelLayer(MacroElement):
             {%- endfor %}
             ]
         }];
-
         var overLayers = [
-        {%- for key, val in this.overlayers.items() %}
+        {%- for key, layer, icon in this.overlayers_data %}
         { name: {{ key|tojson }},
-        layer: {{val}} },
+        icon: iconName("{{ icon }}"),
+        layer: {{layer}} },
         {%- endfor %}
         ];
-
         var panelLayers = new L.Control.PanelLayers(
                 baseLayers,
                 overLayers,
@@ -40,7 +42,8 @@ class PanelLayer(MacroElement):
         {% endmacro %}
         """)
 
-    def __init__(self, group_name=None, collapsibleGroups=True, collapsed=True, **kwargs):  # noqa
+    def __init__(self, group_name=None, group_collapsed=False,
+                 icons=None, collapsibleGroups=True, collapsed=True, **kwargs):  # noqa
         super(PanelLayer, self).__init__()
         self._name = "PanelLayer"
         self.collapsed = True
@@ -49,6 +52,7 @@ class PanelLayer(MacroElement):
             collapsed=collapsed,
             collapsibleGroups=collapsibleGroups,
             **kwargs)
+        self.icons = icons
         self.base_layers = OrderedDict()
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
@@ -64,12 +68,19 @@ class PanelLayer(MacroElement):
                 if len(self.base_layers) > 1:
                     self.layers_untoggle[key] = item.get_name()
             else:
+                print(item.get_name())
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
+        self.overlayers_data = zip(self.overlayers.keys(),
+                                   self.overlayers.values(),
+                                   self.icons)
         super(PanelLayer, self).render()
+
+        # Add CSS and JS files
         figure = self.get_root()
         assert isinstance(figure, Figure), ('You cannot render this Element '
                                             'if it is not in a Figure.')
-        figure.header.add_child(CssLink("leaflet-panel-layers.css"))
-        figure.header.add_child(JavascriptLink("leaflet-panel-layers.js"))
+
+        figure.header.add_child(CssLink("./static_files/leaflet-panel-layers.css"))
+        figure.header.add_child(JavascriptLink("./static_files/leaflet-panel-layers.js"))
