@@ -1,73 +1,112 @@
+"""Panel layers plugin."""
+
 from collections import OrderedDict
-from branca.element import MacroElement, JavascriptLink, CssLink, Figure
+from branca.element import CssLink, Figure, JavascriptLink, MacroElement
+
 from jinja2 import Template
 from folium.utilities import parse_options
 from ..map import Layer
 
 
 class PanelLayer(MacroElement):
+    """
+    PanelLayer.
+
+    Parameters
+    ----------
+    title: str, default None,
+        Title of the control panel
+    raster_group_name: str, default "Raster Layers"
+        Name for the group of raster layers only.
+    compact: bool, default True
+        Controls panel size. If False, panel will have the height of the screen
+    collapsed: bool, default False
+        Panel collapsed at startup.
+    collapsible_groups: bool, default True
+        Groups of layers is collapsible by button
+    icons: list, default None
+        List of fontawesome icons to be show on left size of each layer name (only for data layers).
+        Icons list length and data layers should be the same. Also, the order of each icon must be
+        the same than the data layers in order to coincide each icon in the respective layer name.
+    only_raster: bool. default False
+        Makes possible create a layer panel with only raster (tiles) layers when set True.
+    only_vector: bool. default False
+        Makes possible create a layer panel with only vector (data) layers when set True.
+        The same way, is possible to create two separate panel (see examples below)
+    **kwargs
+        Please see https://github.com/stefanocudini/leaflet-panel-layers/#options
+
+    Examples
+    --------
+    Examples here
+
+    """
+
     _template = Template("""
         {% macro script(this,kwargs) %}
         function iconName(name) {
-        	return '<i class="'+name+'"></i>';}
-
-        {% if this.raster %}
-        var baseLayers = [{
-            group: "{{ this.group_name }}",
-            icon: "{{ this.icon }}",
-            collapsed: {{ this.collapsed|tojson }},
-            layers: [
-            {%- for key, val in this.base_layers.items() %}
-            {name: {{ key|tojson }},
-            layer: {{val}} },
-            {%- endfor %}
-            ]
-        }];
-        {% else %}var baseLayers = null;{% endif %}
-        {% if this.vector %}
-        var overLayers = [
-        {%- for key, layer, icon in this.overlayers_data %}
-        { name: {{ key|tojson }},
-        icon: iconName("{{ icon }}"),
-        layer: {{layer}} },
-        {%- endfor %}
-        ];
-        {% else %} var overLayers = null;{% endif %}
-
+            return '<i class="'+name+'"></i>';}
+        {% if this.only_vector %}
+            var baseLayers = null;
+        {% else %}
+            var baseLayers = [{
+                group: "{{ this.raster_group_name }}",
+                icon: "{{ this.icon }}",
+                collapsed: {{ this.collapsed|tojson }},
+                layers: [
+                {%- for key, val in this.base_layers.items() %}
+                    {name: {{ key|tojson }},
+                    layer: {{val}} },
+            {%- endfor %}]}];{% endif %}
+        {% if this.only_raster %}
+            var overLayers = null;
+        {% else %}
+            var overLayers = [{
+            group: "{{this.data_group_name}}",
+            layers:[
+            {%- for key, layer, icon in this.overlayers_data %}
+                { name: {{ key|tojson }},
+                icon: iconName("{{ icon }}"),
+                layer: {{layer}} },
+            {%- endfor %}]}]; {% endif %}
         var panelLayers = new L.Control.PanelLayers(
                 baseLayers,
                 overLayers,
-                {{ this.options|tojson }}
-            );
+                {{ this.options|tojson }});
             {{ this._parent.get_name() }}.addControl(panelLayers)
-
             {%- for val in this.layers_untoggle.values() %}
             {{ val }}.remove();
             {%- endfor %}
         {% endmacro %}
         """)
 
-    def __init__(self, group_name=None, group_collapsed=True,
-                 icons=None, collapsible_groups=True, collapsed=True,
-                 raster=True, vector=True,
+    def __init__(self, title=None, raster_group_name=None,
+                 data_group_name=None,
+                 collapsible_groups=True,
+                 collapsed=True, icons=None,
+                 only_raster=False, only_vector=False,
                  **kwargs):  # noqa
         super(PanelLayer, self).__init__()
         self._name = "PanelLayer"
-        self.collapsed = True
-        self.group_name = group_name or "Define a Group Name"
+        self.raster_group_name = raster_group_name or " "
+        self.data_group_name = data_group_name or " "
+        self.collapsed = collapsed
         self.options = parse_options(
-            collapsed=collapsed,
+            collapsed=self.collapsed,
             collapsible_groups=collapsible_groups,
+            title=title,
             **kwargs)
+
         self.icons = icons
-        self.raster = raster
-        self.vector = vector
+        self.only_raster = only_raster
+        self.only_vector = only_vector
+
         self.base_layers = OrderedDict()
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
 
     def render(self, **kwargs):
-        """Renders the HTML representation of the element."""
+        """Render the HTML representation of the element."""
         for item in self._parent._children.values():
             if not isinstance(item, Layer) or not item.control:
                 continue
