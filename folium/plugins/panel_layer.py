@@ -47,8 +47,7 @@ class PanelLayer(MacroElement):
 
     _template = Template("""
         {% macro script(this,kwargs) %}
-        function iconName(name) {
-            return '<i class="'+name+'"></i>';}
+
         {% if this.only_vector %}
             var baseLayers = null;
         {% else %}
@@ -69,7 +68,7 @@ class PanelLayer(MacroElement):
                     {"group": "{{ g["group"] }}",
                     "layers": [{% for v in g["layers"] %}
                     {"name": {{ v["name"]|tojson }},
-                    "icon": "{{ v["icon"] }}",
+                    "icon": {{ v["icon"]|tojson }},
                     "layer": {{ v["layer"] }} },
                     {% endfor %} ]},
                 {% endfor %}
@@ -83,6 +82,7 @@ class PanelLayer(MacroElement):
                 overLayers,
                 {{ this.options|tojson }});
             {{ this._parent.get_name() }}.addControl(panelLayers)
+
             {%- for val in this.layers_untoggle.values() %}
             {{ val }}.remove();
             {%- endfor %}
@@ -116,8 +116,8 @@ class PanelLayer(MacroElement):
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
 
-    def _layers(overlayers, layer_names):
-        pass
+    def icon_name(self, name):
+        return '<i class="' + name + '"></i>'
 
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
@@ -134,7 +134,6 @@ class PanelLayer(MacroElement):
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
         # simple panel
-        icons = self.icons or (len(self.group_by) * [None, ])
         if not self.group_by:
             g = {"group": self.data_group_name,
                  "layers": ""}
@@ -149,15 +148,19 @@ class PanelLayer(MacroElement):
 
             # Deal with grouping layers in different panels
         else:
+            assert len(self.group_by) == len(self.data_group_name), (
+                "The length of group name list must be the same than the layer data group."
+            )
             _group_layers = []
             for i, name in enumerate(self.data_group_name):
                 _buffer = {"group": name,
                            "layers": []}
-                # icons = self.icons[i]
+                icons = self.icons[i]
                 layer_name = self.group_by[i]
+
                 for i, layer in enumerate(layer_name):
                     d = {"name": layer,
-                         "icon": i,
+                         "icon": self.icon_name(icons[i]),
                          "layer": self.overlayers[layer]}
                     _buffer["layers"].append(d)
                 _group_layers.append(_buffer)
