@@ -1,10 +1,13 @@
 """Panel layers plugin."""
 
 from collections import OrderedDict
+
 from branca.element import CssLink, Figure, JavascriptLink, MacroElement
 
-from jinja2 import Template
 from folium.utilities import parse_options
+
+from jinja2 import Template
+
 from ..map import Layer
 
 
@@ -85,17 +88,19 @@ class PanelLayer(MacroElement):
                  collapsible_groups=True,
                  collapsed=True, icons=None,
                  only_raster=False, only_vector=False,
+                 group_by=None,
                  **kwargs):  # noqa
         super(PanelLayer, self).__init__()
-        self._name = "PanelLayer"
-        self.raster_group_name = raster_group_name or " "
-        self.data_group_name = data_group_name or " "
+        self._name = 'PanelLayer'
+        self.raster_group_name = raster_group_name or ' '
+        self.data_group_name = data_group_name or ' '
         self.collapsed = collapsed
         self.options = parse_options(
             collapsed=self.collapsed,
             collapsible_groups=collapsible_groups,
             title=title,
             **kwargs)
+        self.group_by = group_by
 
         self.icons = icons
         self.only_raster = only_raster
@@ -116,13 +121,23 @@ class PanelLayer(MacroElement):
                 if len(self.base_layers) > 1:
                     self.layers_untoggle[key] = item.get_name()
             else:
-                print(item.get_name())
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
+
         self.overlayers_data = zip(self.overlayers.keys(),
                                    self.overlayers.values(),
-                                   self.icons)
+                                   self.icons if self.icons else self.overlayers.keys())
+        # Deal with grouping layers in different panels
+        data_layer = []
+        if self.group_by:
+            i = 0
+            for name, layer in self.overlayers.items():
+                if name in self.group_by:
+                    data_layer.append((name, layer, self.icons[i] if self.icons else None))
+                    i += 1
+            self.overlayers_data = data_layer
+
         super(PanelLayer, self).render()
 
         # Add CSS and JS files
@@ -130,5 +145,5 @@ class PanelLayer(MacroElement):
         assert isinstance(figure, Figure), ('You cannot render this Element '
                                             'if it is not in a Figure.')
 
-        figure.header.add_child(CssLink("./static_files/leaflet-panel-layers.css"))
-        figure.header.add_child(JavascriptLink("./static_files/leaflet-panel-layers.js"))
+        figure.header.add_child(CssLink('./static_files/leaflet-panel-layers.css'))
+        figure.header.add_child(JavascriptLink('./static_files/leaflet-panel-layers.js'))
