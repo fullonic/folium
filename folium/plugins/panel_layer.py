@@ -64,14 +64,20 @@ class PanelLayer(MacroElement):
         {% if this.only_raster %}
             var overLayers = null;
         {% else %}
-            var overLayers = [{
-            group: "{{this.data_group_name}}",
-            layers:[
-            {%- for key, layer, icon in this.overlayers_data %}
-                { name: {{ key|tojson }},
-                icon: iconName("{{ icon }}"),
-                layer: {{layer}} },
-            {%- endfor %}]}]; {% endif %}
+            var overLayers = [
+                {% for g in this.overlayers_data %}
+                    {"group": "{{ g["group"] }}",
+                    "layers": [{% for v in g["layers"] %}
+                    {"name": {{ v["name"]|tojson }},
+                    "icon": "{{ v["icon"] }}",
+                    "layer": {{ v["layer"] }} },
+                    {% endfor %} ]},
+                {% endfor %}
+            ];
+
+        {% endif %}
+
+
         var panelLayers = new L.Control.PanelLayers(
                 baseLayers,
                 overLayers,
@@ -100,7 +106,7 @@ class PanelLayer(MacroElement):
             collapsible_groups=collapsible_groups,
             title=title,
             **kwargs)
-        self.group_by = group_by
+        self.group_by = group_by or []
 
         self.icons = icons
         self.only_raster = only_raster
@@ -109,6 +115,9 @@ class PanelLayer(MacroElement):
         self.base_layers = OrderedDict()
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
+
+    def _layers(overlayers, layer_names):
+        pass
 
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
@@ -124,19 +133,36 @@ class PanelLayer(MacroElement):
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
+        # simple panel
+        icons = self.icons or (len(self.group_by) * [None, ])
+        if not self.group_by:
+            g = {"group": self.data_group_name,
+                 "layers": ""}
+            data_layer = []
+            layers = self.overlayers
+            for name, layer in layers.items():
+                data_layer.append({"name": name,
+                                   "layer": layer})
 
-        self.overlayers_data = zip(self.overlayers.keys(),
-                                   self.overlayers.values(),
-                                   self.icons if self.icons else self.overlayers.keys())
-        # Deal with grouping layers in different panels
-        data_layer = []
-        if self.group_by:
-            i = 0
-            for name, layer in self.overlayers.items():
-                if name in self.group_by:
-                    data_layer.append((name, layer, self.icons[i] if self.icons else None))
-                    i += 1
-            self.overlayers_data = data_layer
+            g["layers"] = data_layer
+            self.overlayers_data = [g]
+
+            # Deal with grouping layers in different panels
+        else:
+            _group_layers = []
+            for i, name in enumerate(self.data_group_name):
+                _buffer = {"group": name,
+                           "layers": []}
+                # icons = self.icons[i]
+                layer_name = self.group_by[i]
+                for i, layer in enumerate(layer_name):
+                    d = {"name": layer,
+                         "icon": i,
+                         "layer": self.overlayers[layer]}
+                    _buffer["layers"].append(d)
+                _group_layers.append(_buffer)
+            # print(_group_layers)
+            self.overlayers_data = _group_layers
 
         super(PanelLayer, self).render()
 
@@ -147,3 +173,9 @@ class PanelLayer(MacroElement):
 
         figure.header.add_child(CssLink('./static_files/leaflet-panel-layers.css'))
         figure.header.add_child(JavascriptLink('./static_files/leaflet-panel-layers.js'))
+
+
+# l = [("name", [1,2,3], ["red", "green", "blue"])]
+# for i in l:
+#     print(l[0][0])
+#
