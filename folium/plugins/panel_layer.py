@@ -116,8 +116,25 @@ class PanelLayer(MacroElement):
         self.overlayers = OrderedDict()
         self.layers_untoggle = OrderedDict()
 
-    def icon_name(self, name):
+    def _icon_name(self, name):
+        """Return the html representation of icon name."""
         return '<i class="' + name + '"></i>'
+
+    def _check_icons(self, data_layers, icons):
+        """Calculate the size of icons list.
+
+        Checks if the number of layers and the icons names provided for each group or panel
+        are the same.
+        """
+        print(icons, type(icons))
+        if not icons:
+            return "None"
+        if len(data_layers) == len(icons):
+            return icons
+        else:
+            diff = len(data_layers) - len(icons)
+            icons.append("None " * diff)
+            return icons
 
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
@@ -139,9 +156,14 @@ class PanelLayer(MacroElement):
                  "layers": ""}
             data_layer = []
             layers = self.overlayers
-            for name, layer in layers.items():
+            icons = self._check_icons(layers, self.icons)
+            i = 0
+            for name, layer, icon in zip(layers.keys(), layers.values(), icons):
+                print(icon)
                 data_layer.append({"name": name,
+                                   "icon": self._icon_name(icon),
                                    "layer": layer})
+                i += 1
 
             g["layers"] = data_layer
             self.overlayers_data = [g]
@@ -155,12 +177,12 @@ class PanelLayer(MacroElement):
             for i, name in enumerate(self.data_group_name):
                 _buffer = {"group": name,
                            "layers": []}
-                icons = self.icons[i]
                 layer_name = self.group_by[i]
 
+                icons = self._check_icons(layer_name, self.icons)
                 for i, layer in enumerate(layer_name):
                     d = {"name": layer,
-                         "icon": self.icon_name(icons[i]),
+                         "icon": self._icon_name(icons[i]),
                          "layer": self.overlayers[layer]}
                     _buffer["layers"].append(d)
                 _group_layers.append(_buffer)
