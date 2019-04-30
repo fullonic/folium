@@ -165,20 +165,19 @@ class PanelLayer(MacroElement):
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
-        # Simple panel, no group names
+        # Simple panel: One panel, no groups
         if not self.group_by:
             _group = {"group": self.data_group_name,
                       "layers": ""}
             _data_layers = []
-            layers = self.overlayers
-            icons = self._check_icons(self.icons, layers)
-            for name, icon in zip(layers.keys(), icons):
+            icons = self._check_icons(self.icons, self.overlayers)
+            for name, icon in zip(self.overlayers, icons):
                 _data_layers.append(self._create_layer(name, icon))
 
             _group["layers"] = _data_layers
             self.overlayers_data = [_group]
 
-            # Deal with grouping layers in different panels
+        # Multiple panel with or without groups and single panel with groups
         else:
             assert len(self.group_by) == len(self.data_group_name), (
                 "The length of group name list must be the same than the layer data group."
@@ -190,12 +189,9 @@ class PanelLayer(MacroElement):
                 layer_name = self.group_by[group]
                 _icons = self._check_icons(self.icons, layer_name, group)
 
-                for i, name in enumerate(layer_name):
+                for name, icon in zip(layer_name, _icons):
                     # Flag to check if icons names are a group of list or a single list
                     # Group of lists if used when a single panel is created with multiple groups
-                    # icon = icons[i] if isinstance(icons[0], str) else icons[group][i]
-                    icon = _icons[i]
-                    # self._create_layer(self, layer, icon)
                     _buffer["layers"].append(self._create_layer(name, icon))
                 _group_layers.append(_buffer)
             self.overlayers_data = _group_layers
