@@ -98,13 +98,17 @@ class PanelLayer(MacroElement):
         self.raster_group_name = raster_group_name or ' '
         self.data_group_name = data_group_name or ' '
         self.collapsed = collapsed
-        print(collapsed)
         self.options = parse_options(
             collapsed=collapsed,
             collapsible_groups=collapsible_groups,
             title=title,
             **kwargs)
-        self.group_by = group_by or []
+        if not group_by:
+            self.group_by = []
+        else:
+            # Check if group_by is a list or a list of lists. This allows to pass a single list of
+            # layers to group_by in case of a single panel with only one group of data layers
+            self.group_by = group_by if isinstance(group_by[0], list) else [group_by]
 
         self.icons = icons
         self.only_raster = only_raster
@@ -171,6 +175,7 @@ class PanelLayer(MacroElement):
 
             # Deal with grouping layers in different panels
         else:
+
             assert len(self.group_by) == len(self.data_group_name), (
                 "The length of group name list must be the same than the layer data group."
             )
@@ -209,9 +214,3 @@ class PanelLayer(MacroElement):
             CssLink('../static_files/leaflet-panel-layers.css'))  # noqa
         figure.header.add_child(
             JavascriptLink('../static_files/leaflet-panel-layers.js'))  # noqa
-
-
-# l = [("name", [1,2,3], ["red", "green", "blue"])]
-# for i in l:
-#     print(l[0][0])
-#
