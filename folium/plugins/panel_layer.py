@@ -143,7 +143,13 @@ class PanelLayer(MacroElement):
             except IndexError:
                 return ["None "] * len(layers)
         else:
-            raise "There is a problem"
+            raise """There is a problem:
+            You are doing something that hasn't expected. Check documentation"""
+
+    def _create_layer(self, layer, icon):
+        return {"name": layer,
+                "icon": self._icon_name(icon),
+                "layer": self.overlayers[layer]}
 
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
@@ -161,18 +167,16 @@ class PanelLayer(MacroElement):
                     self.layers_untoggle[key] = item.get_name()
         # Simple panel, no group names
         if not self.group_by:
-            g = {"group": self.data_group_name,
-                 "layers": ""}
-            data_layer = []
+            _group = {"group": self.data_group_name,
+                      "layers": ""}
+            _data_layers = []
             layers = self.overlayers
             icons = self._check_icons(self.icons, layers)
-            for name, layer, icon in zip(layers.keys(), layers.values(), icons):
-                data_layer.append({"name": name,
-                                   "icon": self._icon_name(icon),
-                                   "layer": layer})
+            for name, icon in zip(layers.keys(), icons):
+                _data_layers.append(self._create_layer(name, icon))
 
-            g["layers"] = data_layer
-            self.overlayers_data = [g]
+            _group["layers"] = _data_layers
+            self.overlayers_data = [_group]
 
             # Deal with grouping layers in different panels
         else:
@@ -186,15 +190,13 @@ class PanelLayer(MacroElement):
                 layer_name = self.group_by[group]
                 _icons = self._check_icons(self.icons, layer_name, group)
 
-                for i, layer in enumerate(layer_name):
+                for i, name in enumerate(layer_name):
                     # Flag to check if icons names are a group of list or a single list
                     # Group of lists if used when a single panel is created with multiple groups
                     # icon = icons[i] if isinstance(icons[0], str) else icons[group][i]
                     icon = _icons[i]
-                    d = {"name": layer,
-                         "icon": self._icon_name(icon),
-                         "layer": self.overlayers[layer]}
-                    _buffer["layers"].append(d)
+                    # self._create_layer(self, layer, icon)
+                    _buffer["layers"].append(self._create_layer(name, icon))
                 _group_layers.append(_buffer)
             self.overlayers_data = _group_layers
 
