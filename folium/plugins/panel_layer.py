@@ -109,7 +109,6 @@ class PanelLayer(MacroElement):
             # Check if group_by is a list or a list of lists. This allows to pass a single list of
             # layers to group_by in case of a single panel with only one group of data layers
             self.group_by = group_by if isinstance(group_by[0], list) else [group_by]
-
         self.icons = icons
         self.only_raster = only_raster
         self.only_vector = only_vector
@@ -122,25 +121,29 @@ class PanelLayer(MacroElement):
         """Return the html representation of icon name."""
         return '<i class="' + name + '"></i>'
 
-    def _icon_type(self, icons, layer):
-        if icons is None:
-            return ["None ", ] * len(layer)
-
-    def _check_icons(self, data_layers, icons):
+    def _check_icons(self, icons, layers, index=-1):
         """Calculate the size of icons list.
 
         Checks if the number of layers and the icons names provided for each group or panel
         are the same.
         """
-
-        if not icons:
-            return "None "
-        if len(data_layers) == len(icons):
-            return icons
+        if icons is None:
+            return ["None ", ] * len(layers)
+        elif index == -1:
+            _diff = len(icons) < len(layers)
+            if bool(_diff):
+                icons.append("None " * _diff)
+                return icons
+            else:
+                return icons
+        elif isinstance(icons[0], list):
+            # checks if is a list of lists
+            try:
+                return icons[index]
+            except IndexError:
+                return ["None "] * len(layers)
         else:
-            diff = len(data_layers) - len(icons)
-            icons.append("None " * diff)
-            return icons
+            raise "There is a problem"
 
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
@@ -162,20 +165,17 @@ class PanelLayer(MacroElement):
                  "layers": ""}
             data_layer = []
             layers = self.overlayers
-            icons = self._check_icons(layers, self.icons)
-            i = 0
+            icons = self._check_icons(self.icons, layers)
             for name, layer, icon in zip(layers.keys(), layers.values(), icons):
                 data_layer.append({"name": name,
                                    "icon": self._icon_name(icon),
                                    "layer": layer})
-                i += 1
 
             g["layers"] = data_layer
             self.overlayers_data = [g]
 
             # Deal with grouping layers in different panels
         else:
-
             assert len(self.group_by) == len(self.data_group_name), (
                 "The length of group name list must be the same than the layer data group."
             )
@@ -184,18 +184,13 @@ class PanelLayer(MacroElement):
                 _buffer = {"group": name,
                            "layers": []}
                 layer_name = self.group_by[group]
-                self._icon_type(self.icons, layer_name)
-                try:
-                    _icons = self.icons if isinstance(self.icons[0], str) else self.icons[group]
-                except TypeError:
-                    _icons = self._icon_type(self.icons, layer_name)
+                _icons = self._check_icons(self.icons, layer_name, group)
 
-                icons = self._check_icons(layer_name, _icons)
                 for i, layer in enumerate(layer_name):
                     # Flag to check if icons names are a group of list or a single list
                     # Group of lists if used when a single panel is created with multiple groups
-                    icon = icons[i] if isinstance(icons[0], str) else icons[group][i]
-                    print("LAYER:", layer)
+                    # icon = icons[i] if isinstance(icons[0], str) else icons[group][i]
+                    icon = _icons[i]
                     d = {"name": layer,
                          "icon": self._icon_name(icon),
                          "layer": self.overlayers[layer]}
