@@ -73,10 +73,7 @@ class PanelLayer(MacroElement):
                     {% endfor %} ]},
                 {% endfor %}
             ];
-
         {% endif %}
-
-
         var panelLayers = new L.Control.PanelLayers(
                 baseLayers,
                 overLayers,
@@ -101,8 +98,9 @@ class PanelLayer(MacroElement):
         self.raster_group_name = raster_group_name or ' '
         self.data_group_name = data_group_name or ' '
         self.collapsed = collapsed
+        print(collapsed)
         self.options = parse_options(
-            collapsed=self.collapsed,
+            collapsed=collapsed,
             collapsible_groups=collapsible_groups,
             title=title,
             **kwargs)
@@ -120,15 +118,19 @@ class PanelLayer(MacroElement):
         """Return the html representation of icon name."""
         return '<i class="' + name + '"></i>'
 
+    def _icon_type(self, icons, layer):
+        if icons is None:
+            return ["None ", ] * len(layer)
+
     def _check_icons(self, data_layers, icons):
         """Calculate the size of icons list.
 
         Checks if the number of layers and the icons names provided for each group or panel
         are the same.
         """
-        print(icons, type(icons))
+
         if not icons:
-            return "None"
+            return "None "
         if len(data_layers) == len(icons):
             return icons
         else:
@@ -150,7 +152,7 @@ class PanelLayer(MacroElement):
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
-        # simple panel
+        # Simple panel, no group names
         if not self.group_by:
             g = {"group": self.data_group_name,
                  "layers": ""}
@@ -159,7 +161,6 @@ class PanelLayer(MacroElement):
             icons = self._check_icons(layers, self.icons)
             i = 0
             for name, layer, icon in zip(layers.keys(), layers.values(), icons):
-                print(icon)
                 data_layer.append({"name": name,
                                    "icon": self._icon_name(icon),
                                    "layer": layer})
@@ -174,19 +175,27 @@ class PanelLayer(MacroElement):
                 "The length of group name list must be the same than the layer data group."
             )
             _group_layers = []
-            for i, name in enumerate(self.data_group_name):
+            for group, name in enumerate(self.data_group_name):
                 _buffer = {"group": name,
                            "layers": []}
-                layer_name = self.group_by[i]
+                layer_name = self.group_by[group]
+                self._icon_type(self.icons, layer_name)
+                try:
+                    _icons = self.icons if isinstance(self.icons[0], str) else self.icons[group]
+                except TypeError:
+                    _icons = self._icon_type(self.icons, layer_name)
 
-                icons = self._check_icons(layer_name, self.icons)
+                icons = self._check_icons(layer_name, _icons)
                 for i, layer in enumerate(layer_name):
+                    # Flag to check if icons names are a group of list or a single list
+                    # Group of lists if used when a single panel is created with multiple groups
+                    icon = icons[i] if isinstance(icons[0], str) else icons[group][i]
+                    print("LAYER:", layer)
                     d = {"name": layer,
-                         "icon": self._icon_name(icons[i]),
+                         "icon": self._icon_name(icon),
                          "layer": self.overlayers[layer]}
                     _buffer["layers"].append(d)
                 _group_layers.append(_buffer)
-            # print(_group_layers)
             self.overlayers_data = _group_layers
 
         super(PanelLayer, self).render()
@@ -196,8 +205,10 @@ class PanelLayer(MacroElement):
         assert isinstance(figure, Figure), ('You cannot render this Element '
                                             'if it is not in a Figure.')
 
-        figure.header.add_child(CssLink('./static_files/leaflet-panel-layers.css'))
-        figure.header.add_child(JavascriptLink('./static_files/leaflet-panel-layers.js'))
+        figure.header.add_child(
+            CssLink('../static_files/leaflet-panel-layers.css'))  # noqa
+        figure.header.add_child(
+            JavascriptLink('../static_files/leaflet-panel-layers.js'))  # noqa
 
 
 # l = [("name", [1,2,3], ["red", "green", "blue"])]
