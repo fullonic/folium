@@ -90,7 +90,7 @@ class PanelLayer(MacroElement):
                  data_group_name=None,
                  collapsible_groups=True,
                  collapsed=True, icons=None,
-                 prefix="fa",
+                 prefix="fa", color="black",
                  only_raster=False, only_vector=False,
                  group_by=None,
                  **kwargs):  # noqa
@@ -111,6 +111,7 @@ class PanelLayer(MacroElement):
             # layers to group_by in case of a single panel with only one group of data layers
             self.group_by = group_by if isinstance(group_by[0], list) else [group_by]
         self.icons = icons
+        self.color = color
         self.prefix = prefix
         self.only_raster = only_raster
         self.only_vector = only_vector
@@ -121,7 +122,8 @@ class PanelLayer(MacroElement):
 
     def _icon_name(self, name):
         """Return the html representation of icon name."""
-        return '<i class="' + self.prefix + " " + name + '"></i>'
+        _color = self.color
+        return '<i class="' + self.prefix + " " + name + '" style="color:{};"></i>'.format(_color)
 
     def _check_icons(self, icons, layers, index=-1):
         """Calculate the size of icons list.
