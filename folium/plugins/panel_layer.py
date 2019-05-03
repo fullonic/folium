@@ -64,12 +64,12 @@ class PanelLayer(MacroElement):
             var overLayers = null;
         {% else %}
             var overLayers = [
-                {% for g in this.overlayers_data %}
-                    {"group": "{{ g["group"] }}",
-                    "layers": [{% for v in g["layers"] %}
-                    {"name": {{ v["name"]|tojson }},
-                    "icon": {{ v["icon"]|tojson }},
-                    "layer": {{ v["layer"] }} },
+                {% for group in this.overlayers_data %}
+                    {"group": "{{ group["group"] }}",
+                    "layers": [{% for layer in group["layers"] %}
+                    {"name": {{ layer["name"]|tojson }},
+                    "icon": {{ layer["icon"]|tojson }},
+                    "layer": {{ layer["layer"] }} },
                     {% endfor %} ]},
                 {% endfor %}
             ];
@@ -86,23 +86,22 @@ class PanelLayer(MacroElement):
         {% endmacro %}
         """)
 
-    def __init__(self, title=None, raster_group_name=None,
-                 data_group_name=None,
-                 collapsible_groups=True,
-                 collapsed=True, icons=None,
-                 prefix="fa", color="black",
-                 only_raster=False, only_vector=False,
-                 group_by=None,
-                 **kwargs):  # noqa
+    def __init__(self, title=None, raster_group_name=None, data_group_name=None,
+                 only_raster=False, only_vector=False, group_by=None,
+                 collapsible_groups=True, collapsed=True,
+                 icons=None, prefix="fa", color="black",
+                 **kwargs):
         super(PanelLayer, self).__init__()
         self._name = 'PanelLayer'
         self.raster_group_name = raster_group_name or ' '
         self.data_group_name = data_group_name or ' '
+        self.only_raster = only_raster
+        self.only_vector = only_vector
         self.collapsed = collapsed
         self.options = parse_options(
+            title=title,
             collapsed=collapsed,
             collapsible_groups=collapsible_groups,
-            title=title,
             **kwargs)
         if not group_by:
             self.group_by = []
@@ -111,10 +110,8 @@ class PanelLayer(MacroElement):
             # layers to group_by in case of a single panel with only one group of data layers
             self.group_by = group_by if isinstance(group_by[0], list) else [group_by]
         self.icons = icons
-        self.color = color
         self.prefix = prefix
-        self.only_raster = only_raster
-        self.only_vector = only_vector
+        self.color = color
 
         self.base_layers = OrderedDict()
         self.overlayers = OrderedDict()
@@ -123,7 +120,7 @@ class PanelLayer(MacroElement):
     def _icon_name(self, name):
         """Return the html representation of icon name."""
         _color = self.color
-        return '<i class="' + self.prefix + " " + name + '" style="color:{};"></i>'.format(_color)
+        return '<i class="{} {}" style="color:{};"></i>'.format(self.prefix, name, _color)
 
     def _check_icons(self, icons, layers, index=-1):
         """Calculate the size of icons list.
