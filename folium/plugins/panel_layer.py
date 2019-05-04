@@ -110,7 +110,7 @@ class PanelLayer(MacroElement):
             # layers to group_by in case of a single panel with only one group of data layers
             self.group_by = group_by if isinstance(group_by[0], list) else [group_by]
         self.icons = icons
-        self.prefix = prefix
+        self.prefix = prefix.strip()
         self.color = color
 
         self.base_layers = OrderedDict()
@@ -217,6 +217,10 @@ class PanelLayer(MacroElement):
         figure = self.get_root()
         assert isinstance(figure, Figure), ('You cannot render this Element '
                                             'if it is not in a Figure.')
+
+        if len(self.prefix) == 3 and self.prefix.startswith("fa"):
+            figure.header.add_child(
+            CssLink("https://use.fontawesome.com/releases/v5.8.1/css/all.css"))  # noqa
 
         figure.header.add_child(
             CssLink('../static_files/leaflet-panel-layers.css'))  # noqa
