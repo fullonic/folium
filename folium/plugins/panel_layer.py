@@ -152,6 +152,13 @@ class PanelLayer(MacroElement):
                 "icon": self._icon_name(icon),
                 "layer": self.overlayers[layer]}
 
+    def _remove_duplicated_untoggled(self, layer_type):
+        """Clean duplicate untoggle layers lines from HTML file."""
+        _layers = [layer for layer in self.layers_untoggle.values()]
+        for key, val in layer_type.items():
+            if val in _layers:
+                del self.layers_untoggle[key]
+
     def render(self, **kwargs):
         """Render the HTML representation of the element."""
         for item in self._parent._children.values():
@@ -166,6 +173,13 @@ class PanelLayer(MacroElement):
                 self.overlayers[key] = item.get_name()
                 if not item.show:
                     self.layers_untoggle[key] = item.get_name()
+        if self.only_raster:
+            self._remove_duplicated_untoggled(self.overlayers)
+            # delete here all vector layers_untoggle
+        elif self.only_vector:
+            # delete here all raster layers_untoggle
+            self._remove_duplicated_untoggled(self.base_layers)
+
         # Simple panel: One panel, no groups
         if not self.group_by:
             _group = {"group": self.data_group_name,
