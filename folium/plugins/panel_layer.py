@@ -223,6 +223,6 @@ class PanelLayer(MacroElement):
             CssLink("https://use.fontawesome.com/releases/v5.8.1/css/all.css"))  # noqa
 
         figure.header.add_child(
-            CssLink('../static_files/leaflet-panel-layers.css'))  # noqa
+            CssLink('https://cdn.jsdelivr.net/gh/fullonic/random_data@master/css/leaflet-panel-layers.css'))  # noqa
         figure.header.add_child(
-            JavascriptLink('../static_files/leaflet-panel-layers.js'))  # noqa
+            JavascriptLink('https://cdn.jsdelivr.net/gh/fullonic/random_data@master/js/leaflet-panel-layers.js'))  # noqa
