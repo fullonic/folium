@@ -478,6 +478,7 @@ class GeoJson(Layer):
         elif tooltip is not None:
             self.add_child(Tooltip(tooltip))
         if popup is not None:
+            self.popup = True
             self.add_child(popup)
 
         self.parent_map = None
