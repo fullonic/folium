@@ -525,7 +525,11 @@ class GeoJson(Layer):
                 },
                 {%- endif %}
                 click: function(e) {
+                    {% if this.popup %}
+                    layer.bindPopup(feature.properties.popupContent);
+                    {% else %}
                     {{ this.parent_map.get_name() }}.fitBounds(e.target.getBounds());
+                    {% endif %}
                 }
             });
         };
@@ -589,6 +593,18 @@ class GeoJson(Layer):
             self.add_child(tooltip)
         elif tooltip is not None:
             self.add_child(Tooltip(tooltip))
+        # self._validate_function(self.style_function, 'style_function')
+        # self._validate_function(self.highlight_function, 'highlight_function')
+
+        if isinstance(tooltip, (GeoJsonTooltip, Tooltip)):
+            self.add_child(tooltip)
+        elif tooltip is not None:
+            self.add_child(Tooltip(tooltip))
+        if popup is not None:
+            self.add_child(popup)
+
+        self.parent_map = None
+        self.json = None
 
     def process_data(self, data):
         """Convert an unknown data input into a geojson dictionary."""
@@ -626,12 +642,6 @@ class GeoJson(Layer):
         self._validate_function(self.style_function, 'style_function')
         self._validate_function(self.highlight_function, 'highlight_function')
 
-        if isinstance(tooltip, (GeoJsonTooltip, Tooltip)):
-            self.add_child(tooltip)
-        elif tooltip is not None:
-            self.add_child(Tooltip(tooltip))
-        if popup is not None:
-            self.add_child(popup)
 
     def convert_to_feature_collection(self):
         """Convert data into a FeatureCollection if it is not already."""
