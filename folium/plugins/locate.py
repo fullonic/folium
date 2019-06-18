@@ -75,9 +75,8 @@ class Locate(MacroElement):
         """
         figure = Figure()
         figure.script.add_child(icon)
-        # Iterates over the figure.script.render: First render returns None and the second the Icon
-        for i in range(2):
-            _string_icon = figure.script.render()
+        # First render returns None and the second the Icon
+        _, _string_icon = figure.script.render()
         # Gets current icon parent name. At the moment the parent name is folium.Map
         _icon = icon._parent.get_name()
         # Replace parent name to the self making possible change the default icon
