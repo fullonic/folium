@@ -30,7 +30,6 @@ from folium.utilities import (
 
 from folium.vector_layers import PolyLine, path_options
 
-
 from jinja2 import Template
 
 import numpy as np
@@ -601,6 +600,7 @@ class GeoJson(Layer):
         elif tooltip is not None:
             self.add_child(Tooltip(tooltip))
         if popup is not None:
+            self.popup = True
             self.add_child(popup)
 
         self.parent_map = None
@@ -657,8 +657,8 @@ class GeoJson(Layer):
         # Catch case when GeoJSON is just a single Feature or a geometry.
         if "geometry" not in self.data.keys():
             # Catch case when GeoJSON is just a geometry.
-            self.data = {"type": "Feature", "geometry": self.data}
-        self.data = {"type": "FeatureCollection", "features": [self.data]}
+            self.data = {'type': 'Feature', 'geometry': self.data}
+        self.data = {'type': 'FeatureCollection', 'features': [self.data]}
 
     def _validate_function(self, func, name):
         """
