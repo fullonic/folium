@@ -17,3 +17,6 @@ geckodriver.log
 geckodriver.tar.gz
 geckodriver/
 miniconda.sh
+venv
+static_files
+examples
