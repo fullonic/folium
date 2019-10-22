@@ -81,6 +81,7 @@ __all__ = [
     'CustomIcon',
     'Div',
     'DivIcon',
+    'DynamicGeoJson',
     'Element',
     'FeatureGroup',
     'Figure',
