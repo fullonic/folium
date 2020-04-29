@@ -560,7 +560,7 @@ class GeoJson(Layer):
 
     def __init__(self, data, style_function=None, highlight_function=None,  # noqa
                  name=None, overlay=True, control=True, show=True,
-                 smooth_factor=None, tooltip=None, embed=True, dynamic=None, popup=None):
+                 smooth_factor=None, tooltip=None, embed=True, dynamic=None,circle_marker=None, popup=None):
         super(GeoJson, self).__init__(name=name, overlay=overlay,
                                       control=control, show=show)
         self._name = 'GeoJson'
@@ -605,6 +605,8 @@ class GeoJson(Layer):
 
         self.parent_map = None
         self.json = None
+        if circle_marker:
+            self.circle_marker = circle_marker
 
     def process_data(self, data):
         """Convert an unknown data input into a geojson dictionary."""
